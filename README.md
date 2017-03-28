@@ -41,6 +41,104 @@ Puppet manages the configuration on all the servers in every deployment tier. Th
 
 This project aims to provide a workflow separating _development_ of Puppet code from _deployment_ of Puppet code. It accomplishes this using Git, Hiera, and R10K.
 
-## Development of Puppet Code
+## Git Workflow
 
-## Deployment of Puppet Code
+A _single version_ in a control-repo will describe configuration for _all_ SDLC Deployment Tiers. Yes, you read that correctly. No, it's not a mistake.
+
+In exchange for reducing the amount of Puppet code "vendored" into the site directory, the need for Git branches in the control-repo to hold different versions of code is eliminated. Branches still exist, but they serve a different purpose than traditional r10k branches do. Each branch holds the same code version at the end of a rapid promotion cycle.
+
+Profiles for applications that need to be promoted on their own independent cadence are broken out into separate Puppet modules.
+
+Hiera data is used to define which version of each Puppet module should be deployed to each Deployment Tier.
+
+### Branches
+
+Branches are classified into one of three different branch types. Main branches, Feature branches, and Deployment Tier branches.
+
+#### Main branches
+
+There are two main branches:
+
+1. Integration
+2. Master
+
+All development flows through these branches. Feature branches are forked from master and merged to integration. Integration is promoted to master.
+
+All commits in the master branch are deployable VERSIONS.
+
+Differences between SDLC Deployment Tiers are NOT represented by different VERSIONS in the control-repo. They are represented instead by data in Hiera.
+
+#### Feature branches
+
+Work occurs in feature branches. The process of making a change is to fork a new feature branch off of master; do work, iterate, test, canary deploy, etc. When ready rebase and file a pull request (PR) against integration.
+
+When the PR is accepted and merged to integration, the work is on its way to being deployed.
+
+#### Deployment Tier branches
+
+No work occurs in Deployment Tier branches, no new commits, and no merges. Deployment Tier branches exist only to enumerate the Deployment Tiers that exist, and to associate them with a specific VERSION of code.
+
+### Developing code
+
+1. Check out the master branch
+2. Create a new feature branch based on master
+3. Work. Test. Iterate
+
+### Merging changes
+
+Real merging ONLY happens from feature branches into the integration branch.
+
+1. Check out the integration branch
+2. Do a `git merge` against your feature branch
+3. Resolve any merge conflicts if necessary
+
+### Promoting changes to master
+
+After merging feature branches (individual changes ready to deploy or related feature work that must be deployed together), the integration branch is promoted to master.
+
+1. Check out the master branch
+2. Do a `git merge integration`. It should be a fast-forward merge
+
+### Deploying Code
+
+Deploying code means pushing a VERSION of code to a Deployment Tier.
+
+1. Check out the Deployment Tier branch you want to deploy to
+2. Do a `git reset --hard <VERSION>`
+3. Force-push changes
+
+## Change Workflow
+
+### Change types
+
+Changes are classified into three different change types. Control-repo changes, Module changes, and Hiera changes.
+
+#### Control-repo changes
+
+Any change to code directly committed to the control-repo and NOT inside the `data` or `hieradata` directory. This includes vendored Puppet code (`site/`) as well as things like hiera.yaml and the Puppetfile.
+
+Control-repo changes are promotion-blocking. The VERSION of code containing the control-repo change must be fully deployed out to production before non-blocking changes may proceed past it.
+
+#### Module changes
+
+Module changes are made in git, but not in the control-repo. This catagory of change represents de-coupled work in a separate git repo.
+
+Module changes are non-blocking. In conjunction with Hiera changes, a module change may be deployed to the `stage` SDLC Deployment Tier, and other blocking and non-blocking changes may proceed past it through the SDLC Deployment Tier process.
+
+#### Hiera changes
+
+Any code committed to the control-repo INSIDE the `data` or `hieradata` directory is a Hiera change.
+
+Hiera changes are promotion-blocking. However, because Hiera changes may be designed such that they are specific to an SDLC Deployment Tier, a Hiera change promoted all the way to production may only affect a single SDLC Deployment Tier.
+
+### Change Principles
+
+In general, VERSION changes in the control-repo should flow very rapidly through the SDLC Deployment Tiers. Control-repo changes should be rare. Module changes are fully independent and do not impact deployments.
+
+Hiera changes are blocking, BUT they should be scoped to an SDLC Deployment Tier, thus enabling easy, rapid promotion.
+
+## Modules, Hiera, and Deployment Tiers
+
+This is where it all comes together.
+
+
