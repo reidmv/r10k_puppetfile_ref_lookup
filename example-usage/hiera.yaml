@@ -1,0 +1,15 @@
+#######################################################################
+# This file is managed by Puppet Enterprise during install and upgrade.
+# Do not modify.
+---
+version: 5
+defaults:
+  datadir: data        # This path is relative to hiera.yaml's directory.
+  data_hash: yaml_data # Use the built-in YAML backend.
+hierarchy:
+  - name: "Per-node data"
+    path: "nodes/%{::trusted.certname}.yaml"
+  - name: "Per-SDLC data"
+    path: "deployment_tiers/%{::deployment_tier}.yaml"
+  - name: "Common data"
+    path: "common.yaml"

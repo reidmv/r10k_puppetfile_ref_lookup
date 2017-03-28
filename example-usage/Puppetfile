@@ -1,0 +1,36 @@
+require_relative 'r10k_puppetfile_ref_lookup'
+extend R10K::Puppetfile::RefLookup
+
+forge 'forgeapi.puppetlabs.com'
+
+# Configure the scope that will be used to look up data from Hiera. Any
+# variable can be set here. The function branch_name() returns the name of the
+# branch r10k is currently deploying.
+# 
+# After the scope is configured, it is also possible to configure a
+# fallback_scope. The fallback_scope is used in a lookup if no value is found
+# when looking up versions in the first scope. This allows for the workflow
+# where feature branches are used to develop new work and stage module version
+# updates, where the work is targeted at the first deployment_tier, after which
+# versions will be linearly promoted upwards.
+scope['deployment_tier'] = branch_name
+fallback_scope['deployment_tier'] = 'integration'
+
+
+mod 'reidmv-pe_mco_shell_agent', ref_lookup: 'module::pe_mco_shell_agent::version'
+
+mod 'geoffwilliams/r_profile',
+  git: 'https://github.com/declarativesystems/r_profile.git',
+  ref_lookup: 'module::r_profile::version'
+
+mod 'puppetlabs-ntp',
+  git: 'https://github.com/puppetlabs/puppetlabs-ntp.git',
+  ref_lookup: 'module::ntp::version'
+
+mod 'puppetlabs-apache',
+  git: 'https://github.com/puppetlabs/puppetlabs-apache.git',
+  ref: '1.11.0'
+
+mod 'puppetlabs-stdlib',
+  git: 'https://github.com/puppetlabs/puppetlabs-stdlib.git',
+  ref: '4.16.0'

@@ -1,0 +1,4 @@
+---
+module::ntp::version: "4.2.0"
+module::pe_mco_shell_agent::version: "1.0.0"
+module::r_profile::version: "0.8.2"
