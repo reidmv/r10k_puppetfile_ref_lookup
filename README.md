@@ -154,3 +154,85 @@ See the Puppetfile in the `example-usage` directory.
 In the Puppetfile, some modules use a new parameter, `ref_lookup`, to tie the version of the module which will be deployed to a specification in Hiera data.
 
 In Hiera, each Deployment Tier data file enumerates which application module versions should be deployed to that SDLC Deployment Tier.
+
+#### Implementation
+
+* Install the `r10k_puppetfile_ref_lookup.rb` file into the root of the control-repo, next to the Puppetfile
+* Make sure a `hiera.yaml` file is in the control-repo. That is, use a per-environment `hiera.yaml`, Hiera 5 style
+* Add the following two lines to the top of the Puppetfile:
+
+    ```ruby
+    require_relative 'r10k_puppetfile_ref_lookup'
+    extend R10K::Puppetfile::RefLookup
+    ```
+
+* Lookups performed during r10k runs have no facts. You need to set the value of any variables you want Hiera to interpolate, such as "environment" or "deployment\_tier". There is really only one variable value available, which is `branch_name`. Set variables in scope like this.
+
+    ```ruby
+    scope['environment'] = branch_name
+    scope['deployment_tier'] = branch_name
+    scope['company'] = "rgbank"
+    ```
+
+* When developing in a feature branch, the branch name is not a good analog for Deployment Tier. Therefore, when a `ref_lookup` performed using the regular scope failsa second lookup is performed using a fallback scope. Set static values in the fallback scope to let feature branches target the first tier of deployment.
+
+    ```ruby
+    fallback_scope['environment'] = branch_name
+    fallback_scope['deployment_tier'] = "development"
+    fallback_scope['company'] = "rgbank"
+    ```
+
+* Use `ref_lookup` in place of `ref` (git) or version numbers (Forge) for modules which need to be deployed/promoted through Deployment Tiers at rate different from the rate changes are made to the control-repo.
+
+    ```ruby
+    mod 'puppetlabs/stdlib', ref_lookup: 'module::stdlib::version'
+
+    mod 'rgbank/profile_fto',
+      git: 'https://github.rgbank.com/puppet/profile_fto.git',
+      ref_lookup: 'module::profile_fto::version'
+    ```
+
+* Create Hiera data per Deployment Tier defining which module versions to use _in that Deployment Tier_. For example, this Hiera data shows a new version of stdlib being tested in development, while a slightly older version is still used in production.
+
+   ```yaml
+   # deployment_tier/development.yaml
+   ---
+   module::profile_fto::version: "1.2.0"
+   module::stdlib::version: "4.16.0"
+   ```
+
+   ```yaml
+   # deployment_tier/prestage.yaml
+   ---
+   module::profile_fto::version: "1.1.0"
+   module::stdlib::version: "4.16.0"
+   ```
+
+   ```yaml
+   # deployment_tier/production.yaml
+   ---
+   module::profile_fto::version: "1.1.0"
+   module::stdlib::version: "4.15.0"
+   ```
+
+### Deploy an application to a Deployment Tier
+
+At a high level, the process of updating an application and deploying it to a single Deployment Tier is as follows. Assume we're deploying a newer version of the FTO app, 1.2.0 to the prestage Deployment Tier.
+
+1. Make a feature branch for the deployment
+2. In the feature branch, update Hiera data for the prestage Deployment Tier. For example:
+    * Open `data/deployment_tiers/prestage.yaml`
+    * Update the `module::profile_fto::version` parameter to `1.2.0`
+    * Commit the change
+3. Make a pull request to the integration branch in git
+4. If approved, the PR will be merged, integration promoted to master, and the new VERSION of Puppet code rolled out to the Deployment Tiers. The new code will have no impact in any Deployment Tier except prestage, where it will cause the new version of the FTO profile to be deployed.
+
+## Final Thoughts
+
+This workflow has multiple work queues.
+
+The single most important change queue in the control-repo. This is a fast-paced queue. It is imperative that changes made in this queue are small, fast, rolled out quickly, and rolled out regularly because everything needs to go through this queue regardless of which Deployment Tier the change targets.
+
+Every module CAN be a separate queue, non-blocking to change deployment, which can be worked at its own pace. It is related to the control-repo queue because when it's time to deploy a module change to one of the Deployment Tiers, a small data change must be pushed through the control-repo queue.
+
+Occasionally, there may come a time when a global-effect change to the control repo needs to be deployed. When this happens, everything slows down and backs up behind this change as it works its way through the SDLC tiers. These global-effect changes should therefore be minimized to avoid blocking deployment of independent modules.
