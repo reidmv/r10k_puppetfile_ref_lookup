@@ -137,8 +137,20 @@ In general, VERSION changes in the control-repo should flow very rapidly through
 
 Hiera changes are blocking, BUT they should be scoped to an SDLC Deployment Tier, thus enabling easy, rapid promotion.
 
-## Modules, Hiera, and Deployment Tiers
+## Separating app deployment cadence from control-repo deployment cadence
 
-This is where it all comes together.
+Control-repo deployment cadence should be fast and simple. A VERSION in master is deployed to development, then testing, etc., until production. Ideally this would happen no less than daily.
 
+Application changes may move through the SDLC more ponderously, and independent of one another. To handle this:
 
+* Put each application in its own module
+* Use Hiera to define which application module versions should be deployed to each Deployment Tier
+* Make small Hiera data changes to update a module version in a single SDLC Deployment Tier. The Hiera change will be quickly deployed through all environments, and the result will be that in a SINGLE Deployment Tier, one new application version will be deployed.
+
+### R10K Puppetfile RefLookup
+
+See the Puppetfile in the `example-usage` directory.
+
+In the Puppetfile, some modules use a new parameter, `ref_lookup`, to tie the version of the module which will be deployed to a specification in Hiera data.
+
+In Hiera, each Deployment Tier data file enumerates which application module versions should be deployed to that SDLC Deployment Tier.
